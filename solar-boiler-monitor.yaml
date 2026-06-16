@@ -1,0 +1,93 @@
+esphome:
+  name: solar-boiler
+  friendly_name: Solar Boiler GVS
+
+logger:
+  baud_rate: 115200
+  level: WARN
+
+esp32:
+  board: esp32dev
+  framework:
+    type: arduino
+
+wifi:
+  ssid: "Cofman"
+  password: "0547716694"
+
+ota:
+  platform: esphome
+
+api:
+web_server:
+  port: 80
+
+one_wire:
+  - platform: gpio
+    pin: GPIO4
+
+sensor:
+  - platform: dallas_temp
+    address: 0xf406259244c85628
+    name: "Бойлер ГВС"
+    unit_of_measurement: "°C"
+    accuracy_decimals: 0
+    update_interval: 10s
+    id: boiler_temp
+
+  - platform: dallas_temp
+    address: 0x4c0625921d32c528
+    name: "Коллектор Подача"
+    unit_of_measurement: "°C"
+    accuracy_decimals: 0
+    update_interval: 10s
+    id: supply_temp
+
+  - platform: dallas_temp
+    address: 0x220625923a119528
+    name: "Коллектор Обратка"
+    unit_of_measurement: "°C"
+    accuracy_decimals: 0
+    update_interval: 10s
+    id: return_temp
+
+  - platform: template
+    name: "ΔT Коллектора"
+    unit_of_measurement: "°C"
+    accuracy_decimals: 1
+    update_interval: 10s
+    lambda: |-
+      return id(supply_temp).state - id(return_temp).state;
+
+display:
+  - platform: ssd1306_i2c
+    model: "SSD1306 128x64"
+    address: 0x3C
+    rotation: 0°
+    update_interval: 2s
+    lambda: |-
+      it.print(0, 0, id(font_small), "=== Solar GVS ===");
+      it.print(0, 12, id(font_small), "Бойлер: ");
+      if (isnan(id(boiler_temp).state)) {
+        it.print(55, 12, id(font_small), "LOST");
+      } else {
+        it.printf(55, 12, id(font_small), "%.0fC", id(boiler_temp).state);
+      }
+      it.print(0, 26, id(font_small), "Подача: ");
+      it.printf(55, 26, id(font_small), "%.0fC", id(supply_temp).state);
+      it.print(0, 38, id(font_small), "Обратка:");
+      it.printf(55, 38, id(font_small), "%.0fC", id(return_temp).state);
+
+      float dt = id(supply_temp).state - id(return_temp).state;
+      it.printf(0, 52, id(font_small), "dT: %+.1fC", dt);
+
+text_sensor:
+  - platform: wifi_info
+    ip_address:
+      name: "IP Address"
+      id: ip_address
+
+font:
+  - file: "gfonts://Roboto"
+    id: font_small
+    size: 9
